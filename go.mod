@@ -7,6 +7,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.2 // indirect
 	github.com/cncf/xds/go v0.0.0-20211216145620-d92e9ce0af51 // indirect
 	github.com/envoyproxy/protoc-gen-validate v0.6.2 // indirect
+	github.com/gin-gonic/gin v1.7.7 // indirect
 	github.com/go-kratos/kratos/cmd/kratos/v2 v2.0.0-20211224061050-e95452276f1f // indirect
 	github.com/go-kratos/kratos/cmd/protoc-gen-go-errors/v2 v2.0.0-20211224061050-e95452276f1f // indirect
 	github.com/go-kratos/kratos/cmd/protoc-gen-go-http/v2 v2.0.0-20211224061050-e95452276f1f // indirect
