@@ -8,9 +8,9 @@ import (
 )
 
 var (
-	ctx                     = context.Background()
-	redisMemoryRegex        = regexp.MustCompile("used_memory_human:.*?\n")
-	batchCount              = 1 * 10000
+	ctx              = context.Background()
+	redisMemoryRegex = regexp.MustCompile("used_memory_human:.*?\n")
+	batchCount       = 1 * 10000
 )
 
 //set 通过pipeline向redis写入指定count的kv数据
@@ -49,8 +49,7 @@ func analysis(redisClient *redis.Client, f func()) {
 	redisClient.FlushDB(ctx)
 	f()
 	val, err := redisClient.Info(ctx, "memory").Result()
-	redisMemoryRegex = regexp.MustCompile("used_memory_human:.*?\n")
-	fmt.Printf("%q\n",redisMemoryRegex.Find([]byte(val)))
+	fmt.Printf("%q\n", redisMemoryRegex.Find([]byte(val)))
 	if err != nil {
 		panic(err)
 	}
