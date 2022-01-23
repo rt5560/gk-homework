@@ -11,9 +11,11 @@ require (
 	github.com/go-kratos/kratos/cmd/kratos/v2 v2.0.0-20211224061050-e95452276f1f // indirect
 	github.com/go-kratos/kratos/cmd/protoc-gen-go-errors/v2 v2.0.0-20211224061050-e95452276f1f // indirect
 	github.com/go-kratos/kratos/cmd/protoc-gen-go-http/v2 v2.0.0-20211224061050-e95452276f1f // indirect
+	github.com/go-redis/redis/v8 v8.11.4 // indirect
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/google/wire v0.5.0 // indirect
 	github.com/googleapis/google-cloud-go-testing v0.0.0-20210719221736-1c9a4c676720 // indirect
+	github.com/jmcvetta/randutil v0.0.0-20150817122601-2bb1b664bcff // indirect
 	github.com/lyft/protoc-gen-star v0.6.0 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/pkg/errors v0.9.1
