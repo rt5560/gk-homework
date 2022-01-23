@@ -1,127 +1,105 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"github.com/jmcvetta/randutil"
-	"golang.org/x/sync/errgroup"
-	"strconv"
-	"strings"
-	"time"
+	"regexp"
 )
 
+var (
+	ctx                     = context.Background()
+	redisMemoryRegex        = regexp.MustCompile("used_memory_human:.*?\n")
+	batchCount              = 1 * 10000
+)
+
+//set 通过pipeline向redis写入指定count的kv数据
+func set(redisClient *redis.Client, key string, value string, count int) {
+	fmt.Printf("插入key[%s]，", key)
+
+	pipe := redisClient.Pipeline()
+	for i := 0; i < count; i++ {
+		newKey := fmt.Sprintf("%s:%v", key, i)
+		pipe.Set(ctx, newKey, value, -1)
+		if i%batchCount == 0 {
+			execPipe(pipe)
+		}
+	}
+	execPipe(pipe)
+}
+
+func execPipe(pipe redis.Pipeliner) {
+	_, err := pipe.Exec(ctx)
+	if err != nil {
+		panic(err)
+	}
+}
+
+//getValue 生成指定字节的value
+func getValue(dataSize int) string {
+	bytes := make([]byte, dataSize)
+	for i, _ := range bytes {
+		bytes[i] = 'a'
+	}
+	return string(bytes)
+}
+
+//analysis 分析redis的内存,并将内存信息输出到控制台
+func analysis(redisClient *redis.Client, f func()) {
+	redisClient.FlushDB(ctx)
+	f()
+	val, err := redisClient.Info(ctx, "memory").Result()
+	redisMemoryRegex = regexp.MustCompile("used_memory_human:.*?\n")
+	fmt.Printf("%q\n",redisMemoryRegex.Find([]byte(val)))
+	if err != nil {
+		panic(err)
+	}
+}
 
 func main() {
 
-	ctx := context.Background()
-	rdb := CreateClient()
-	rdb.FlushAll(ctx)
-
-	m1, err := GetMemory(ctx, rdb)
-	if err != nil {
-		panic(err)
-	}
-	option := &Option{
-		Num:  10000, // 数量
-		Size: 100, // 容量大小
-	}
-	err = CreateValue(ctx, rdb, option)
-	if err != nil {
-		panic(err)
-	}
-	m2, err := GetMemory(ctx, rdb)
-	if err != nil {
-		//t.Fatal(err)
-	}
-	fmt.Printf("key：%d ,key size：%d \n", option.Num, option.Size)
-	res := Contrast(m1, m2, option)
-	for _, v := range res {
-		fmt.Printf("norm：%s,total： %d byte,avg：%d \n", v.Name, v.Total, v.Avg)
-	}
-
-}
-
-type Option struct {
-	Num  int
-	Size int
-}
-
-// CreateValue 生成value值的大小
-func CreateValue(ctx context.Context, rdb *redis.Client, option *Option) error {
-
-	eg, ctx := errgroup.WithContext(ctx)
-	keyPrefix, err := randutil.AlphaString(6)
-	if err != nil {
-		return err
-	}
-	for i := 0; i <= option.Num; i++ {
-		key := fmt.Sprintf("%s-%d", keyPrefix, i)
-		eg.Go(func() error {
-			val, err := randutil.AlphaString(option.Size)
-			if err != nil {
-				return err
-			}
-			return rdb.Set(ctx, key, val, time.Minute).Err()
-		})
-	}
-	return eg.Wait()
-}
-
-// GetMemory 获取内存信息
-func GetMemory(ctx context.Context, rdb *redis.Client) (map[string]int, error) {
-	memory := rdb.Info(ctx, "memory")
-	ret := make(map[string]int)
-	scanner := bufio.NewScanner(strings.NewReader(memory.String()))
-	for scanner.Scan() {
-		sp := strings.Split(scanner.Text(), ":")
-		if len(sp) != 2 {
-			continue
-		}
-		switch sp[0] {
-		case "used_memory":
-			fallthrough
-		case "used_memory_rss":
-			//fallthrough
-			//case "used_memory_peak":
-			parseInt, err := strconv.ParseInt(sp[1], 10, 64)
-			if err != nil {
-				return nil, err
-			}
-			ret[sp[0]] = int(parseInt)
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return ret, err
-	}
-	return ret, nil
-}
-
-type Result struct {
-	Name  string `json:"name"`
-	Total int    `json:"total"`
-	Avg   int    `json:"avg"`
-}
-
-func Contrast(before map[string]int, after map[string]int, option *Option) []Result {
-	result := make([]Result, 0)
-	for k, v := range before {
-		total := after[k] - v
-		result = append(result, Result{
-			Name:  k,
-			Total: total,
-			Avg:   total / option.Num,
-		})
-	}
-	return result
-}
-
-func CreateClient() *redis.Client {
-	return redis.NewClient(&redis.Options{
+	client := redis.NewClient(&redis.Options{
 		Addr:     "127.0.0.1:6379",
 		Password: "",
 		DB:       0,
 	})
-}
+	analysis(client, func() {
+		set(client, "len_10_10000", getValue(10), 10000)
+	})
 
+	analysis(client, func() {
+		set(client, "len_10_500000", getValue(10), 500000)
+	})
+
+	analysis(client, func() {
+		set(client, "len_20_10000", getValue(20), 10000)
+	})
+
+	analysis(client, func() {
+		set(client, "len_20_500000", getValue(20), 500000)
+	})
+
+	analysis(client, func() {
+		set(client, "len_200_10000", getValue(200), 10000)
+	})
+
+	analysis(client, func() {
+		set(client, "len_200_500000", getValue(200), 500000)
+	})
+
+	analysis(client, func() {
+		set(client, "len_1024_10000", getValue(1024), 10000)
+	})
+
+	analysis(client, func() {
+		set(client, "len_1024_500000", getValue(1024), 500000)
+	})
+
+	analysis(client, func() {
+		set(client, "len_5120_10000", getValue(5120), 10000)
+	})
+
+	analysis(client, func() {
+		set(client, "len_5120_50000", getValue(5120), 50000)
+	})
+}
